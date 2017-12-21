@@ -5,7 +5,7 @@ import de.upb.cs.swt.sectypes.qual.Low;
  * Created by benhermann on 19.12.17.
  */
 public class SampleProgram {
-    public void main(@High String[] args) {
+    public void main(@Low String[] args) {
         @High int secret = 42;
         @Low int pub = 12;
 
