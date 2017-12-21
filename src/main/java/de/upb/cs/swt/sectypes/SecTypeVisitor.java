@@ -49,7 +49,20 @@ public class SecTypeVisitor extends BaseTypeVisitor{
 
         AnnotatedTypeMirror conditionType = getTypeFactory().getAnnotatedType(node.getCondition());
 
-        if (true || conditionType.hasAnnotation(High.class)) {
+        boolean isConditionHigh = false;
+
+        if (node.getCondition() instanceof ParenthesizedTree) {
+            ParenthesizedTree parens = (ParenthesizedTree) node.getCondition();
+            if (parens.getExpression() instanceof BinaryTree) {
+                BinaryTree comparison = (BinaryTree) parens.getExpression();
+
+                AnnotatedTypeMirror leftType = getTypeFactory().getAnnotatedType(comparison.getLeftOperand());
+                AnnotatedTypeMirror rightType = getTypeFactory().getAnnotatedType(comparison.getRightOperand());
+                isConditionHigh = leftType.hasAnnotation(High.class) || rightType.hasAnnotation(High.class);
+            }
+        }
+
+        if (isConditionHigh) {
             ((BlockTree)node.getThenStatement()).getStatements().forEach(s -> checkIfStatementIsAssignmentToLowVar(s, "then"));
             ((BlockTree)node.getElseStatement()).getStatements().forEach(s -> checkIfStatementIsAssignmentToLowVar(s, "else"));
         }
