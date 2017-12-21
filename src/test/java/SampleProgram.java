@@ -9,12 +9,16 @@ public class SampleProgram {
         @High int secret = Integer.parseInt("42");
         @Low int pub = 12;
 
-        if (secret == 42) {
+        if (secret == 32) {
             pub = 1;
         } else {
             pub = 2;
             pub = secret;
             secret = pub;
+        }
+
+        for (secret = Integer.parseInt("1"); secret == 42; pub++) {
+            pub = pub * 2;
         }
 
         pub = secret;

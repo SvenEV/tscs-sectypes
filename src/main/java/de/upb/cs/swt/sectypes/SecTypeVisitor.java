@@ -1,23 +1,14 @@
 package de.upb.cs.swt.sectypes;
 
 import com.sun.source.tree.*;
-import com.sun.tools.javac.tree.JCTree;
 import de.upb.cs.swt.sectypes.qual.High;
 import de.upb.cs.swt.sectypes.qual.Low;
-import jdk.nashorn.internal.ir.Assignment;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
 import org.checkerframework.framework.source.Result;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.GenericAnnotatedTypeFactory;
-import org.checkerframework.javacutil.TypesUtils;
-
-import javax.lang.model.element.AnnotationMirror;
-import javax.swing.tree.TreePath;
-import java.lang.reflect.InvocationTargetException;
-import java.util.List;
 
 /**
  * You can implement the specific rules for the type checker in this class
@@ -46,31 +37,65 @@ public class SecTypeVisitor extends BaseTypeVisitor{
 
     @Override
     public Object visitIf(IfTree node, Object o) {
+        if (isComparisonWithHigh(node.getCondition())) {
+            checkBlockForAssignmentToLowVar((BlockTree)node.getThenStatement(), "then-branch");
+            checkBlockForAssignmentToLowVar((BlockTree)node.getElseStatement(), "else-branch");
+        }
+        return super.visitIf(node, o);
+    }
 
-        AnnotatedTypeMirror conditionType = getTypeFactory().getAnnotatedType(node.getCondition());
+    @Override
+    public Object visitWhileLoop(WhileLoopTree node, Object o) {
+        if (isComparisonWithHigh(node.getCondition())) {
+            checkBlockForAssignmentToLowVar((BlockTree)node.getStatement(), "while-loop");
+        }
+        return super.visitWhileLoop(node, o);
+    }
 
-        boolean isConditionHigh = false;
+    @Override
+    public Object visitDoWhileLoop(DoWhileLoopTree node, Object o) {
+        if (isComparisonWithHigh(node.getCondition())) {
+            checkBlockForAssignmentToLowVar((BlockTree)node.getStatement(), "do-while-loop");
+        }
+        return super.visitDoWhileLoop(node, o);
+    }
 
-        if (node.getCondition() instanceof ParenthesizedTree) {
-            ParenthesizedTree parens = (ParenthesizedTree) node.getCondition();
+    @Override
+    public Object visitForLoop(ForLoopTree node, Object o) {
+        if (isComparisonWithHigh(node.getCondition())) { // TODO: this doesn't seem to work
+            checkBlockForAssignmentToLowVar((BlockTree)node.getStatement(), "for-loop");
+            node.getUpdate().forEach(s -> {
+                if (isAssignmentToLowVar(s))
+                    reportInterference("for-update", s);
+            });
+        }
+        return super.visitForLoop(node, o);
+    }
+
+    private boolean isComparisonWithHigh(ExpressionTree tree) {
+        boolean result = false;
+
+        if (tree instanceof ParenthesizedTree) {
+            ParenthesizedTree parens = (ParenthesizedTree) tree;
             if (parens.getExpression() instanceof BinaryTree) {
                 BinaryTree comparison = (BinaryTree) parens.getExpression();
 
                 AnnotatedTypeMirror leftType = getTypeFactory().getAnnotatedType(comparison.getLeftOperand());
                 AnnotatedTypeMirror rightType = getTypeFactory().getAnnotatedType(comparison.getRightOperand());
-                isConditionHigh = leftType.hasAnnotation(High.class) || rightType.hasAnnotation(High.class);
+                result = leftType.hasAnnotation(High.class) || rightType.hasAnnotation(High.class);
             }
         }
-
-        if (isConditionHigh) {
-            ((BlockTree)node.getThenStatement()).getStatements().forEach(s -> checkIfStatementIsAssignmentToLowVar(s, "then"));
-            ((BlockTree)node.getElseStatement()).getStatements().forEach(s -> checkIfStatementIsAssignmentToLowVar(s, "else"));
-        }
-
-        return super.visitIf(node, o);
+        return result;
     }
 
-    private void checkIfStatementIsAssignmentToLowVar(StatementTree statement, String branchName) {
+    private void checkBlockForAssignmentToLowVar(BlockTree block, String locationName) {
+        block.getStatements().forEach(s -> {
+            if (isAssignmentToLowVar(s))
+                reportInterference(locationName, s);
+        });
+    }
+
+    private boolean isAssignmentToLowVar(StatementTree statement) {
         if (statement instanceof ExpressionStatementTree) {
             ExpressionStatementTree expressionStatement = (ExpressionStatementTree)statement;
             if (expressionStatement.getExpression() instanceof AssignmentTree) {
@@ -78,10 +103,15 @@ public class SecTypeVisitor extends BaseTypeVisitor{
                 AnnotatedTypeMirror varType = getTypeFactory().getAnnotatedType(assignment.getVariable());
 
                 if (varType.hasAnnotation(Low.class))
-                    checker.report(Result.failure(
-                            "Interference: Assignment to a low variable insight a " + branchName +
-                            "-branch might leak sensitive data because the if-condition is high"), assignment);
+                    return true;
             }
         }
+        return false;
+    }
+
+    private void reportInterference(String locationName, Tree location) {
+        checker.report(Result.failure(
+                "Assignment to a low variable inside a " + locationName +
+                " might leak sensitive data because the if-condition is high"), location);
     }
 }
