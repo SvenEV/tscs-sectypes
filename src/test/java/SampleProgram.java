@@ -17,5 +17,7 @@ public class SampleProgram {
             secret = pub;
         }
 
+        pub = secret;
+
     }
 }

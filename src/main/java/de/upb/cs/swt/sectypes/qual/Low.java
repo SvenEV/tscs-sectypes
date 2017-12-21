@@ -8,8 +8,7 @@ import java.lang.annotation.Target;
 /**
  * The low-security qualifier
  */
-@SubtypeOf(High.class)
+@SubtypeOf(Unqualified.class)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
-@ImplicitFor(literals = LiteralKind.ALL)
-@DefaultQualifierInHierarchy
+@ImplicitFor(literals = LiteralKind.INT)
 public @interface Low {}
