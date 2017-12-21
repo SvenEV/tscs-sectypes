@@ -5,8 +5,8 @@ import de.upb.cs.swt.sectypes.qual.Low;
  * Created by benhermann on 19.12.17.
  */
 public class SampleProgram {
-    public void main(@Low String[] args) {
-        @High int secret = 42;
+    public void main(String[] args) {
+        @High int secret = Integer.parseInt("42");
         @Low int pub = 12;
 
         if (secret == 42) {
